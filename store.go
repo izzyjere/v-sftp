@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 
@@ -45,10 +46,10 @@ func NewUserStore(dsn string) *UserStore {
 	}
 	return &UserStore{db: db, logger: logger}
 }
-func (s *UserStore) FetchUserByUsername(store *UserStore, username string) (*User, error) {
+func (s *UserStore) FetchUserByUsername(ctx context.Context, username string) (*User, error) {
 	s.logger.Infof("Fetching user by username: %s", username)
 	query := `SELECT id, display_name, group_name, username, password_hash, public_key, root_path, perms, disabled FROM sftp_users WHERE username = ?`
-	row := store.db.QueryRow(query, username)
+	row := s.db.QueryRowContext(ctx, query, username)
 	var user User
 	err := row.Scan(&user.ID, &user.DisplayName, &user.GroupName, &user.Username, &user.PasswordHash, &user.PublicKey, &user.RootPath, &user.Perms, &user.Disabled)
 	if err != nil {

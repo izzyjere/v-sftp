@@ -18,7 +18,7 @@ const (
 	SSH_FXP_RMDIR  = "Rmdir"
 )
 
-// SftpHandler will be used by sftp.NewRequestServer to handle requests.
+// SftpHandler is used by sftp.NewRequestServer to handle requests.
 // It uses the OS filesystem but enforces virtual root + permission checks.
 type SftpHandler struct {
 	user   *User
@@ -61,8 +61,8 @@ func (h *SftpHandler) resolvePath(requested string) (string, error) {
 	return abs, nil
 }
 
-// HasPermission checks if the user has the specified permission.
-func (h *SftpHandler) HasPermission(perm Permission) bool {
+// hasPermission checks if the user has the specified permission.
+func (h *SftpHandler) hasPermission(perm Permission) bool {
 	hasPerm := h.user.Perms&perm != 0
 	h.logger.Debugf("Checking permission %d for user %s: %v", perm, h.user.Username, hasPerm)
 	return hasPerm
@@ -70,9 +70,9 @@ func (h *SftpHandler) HasPermission(perm Permission) bool {
 
 // FileRead reads a file from the user's root directory.
 // Handles download/open-for-read requests
-func (h *SftpHandler) FileRead(r *sftp.Request) (io.ReaderAt, error) {
+func (h *SftpHandler) Fileread(r *sftp.Request) (io.ReaderAt, error) {
 	h.logger.Debugf("[FileRead] User: %s, Path: %s", h.user.Username, r.Filepath)
-	if !h.HasPermission(PermRead) {
+	if !h.hasPermission(PermRead) {
 		h.logger.Warnf("Read permission denied for user: %s", h.user.Username)
 		return nil, os.ErrPermission
 	}
@@ -93,11 +93,11 @@ func (h *SftpHandler) FileRead(r *sftp.Request) (io.ReaderAt, error) {
 	return file, nil
 }
 
-// FileWrite writes a file to the user's root directory.
+// Filewrite writes a file to the user's root directory.
 // Handles upload/open-for-write requests
-func (h *SftpHandler) FileWrite(r *sftp.Request) (io.WriterAt, error) {
-	h.logger.Debugf("[FileWrite] User: %s, Path: %s", h.user.Username, r.Filepath)
-	if !h.HasPermission(PermWrite) {
+func (h *SftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
+	h.logger.Debugf("[Filewrite] User: %s, Path: %s", h.user.Username, r.Filepath)
+	if !h.hasPermission(PermWrite) {
 		h.logger.Warnf("Write permission denied for user: %s", h.user.Username)
 		return nil, os.ErrPermission
 	}
@@ -122,10 +122,10 @@ func (h *SftpHandler) FileWrite(r *sftp.Request) (io.WriterAt, error) {
 	return file, nil
 }
 
-// FileCmd handles other file commands like Delete, Rename, Mkdir, Rmdir
-func (h *SftpHandler) FileCmd(r *sftp.Request) error {
-	h.logger.Debugf("[FileCmd] User: %s, Method: %s, Path: %s", h.user.Username, r.Method, r.Filepath)
-	if !h.HasPermission(PermWrite) {
+// Filecmd handles other file commands like Delete, Rename, Mkdir, Rmdir
+func (h *SftpHandler) Filecmd(r *sftp.Request) error {
+	h.logger.Debugf("[Filecmd] User: %s, Method: %s, Path: %s", h.user.Username, r.Method, r.Filepath)
+	if !h.hasPermission(PermWrite) {
 		h.logger.Warnf("Write permission denied for user: %s", h.user.Username)
 		return os.ErrPermission
 	}
@@ -172,11 +172,11 @@ func (h *SftpHandler) FileCmd(r *sftp.Request) error {
 	return nil
 }
 
-// FileList lists files in a directory within the user's root directory.
+// Filelist lists files in a directory within the user's root directory.
 // Handles directory listing requests
-func (h *SftpHandler) FileList(r *sftp.Request) (sftp.ListerAt, error) {
-	h.logger.Debugf("[FileList] User: %s, Path: %s", h.user.Username, r.Filepath)
-	if !h.HasPermission(PermList) {
+func (h *SftpHandler) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
+	h.logger.Debugf("[Filelist] User: %s, Path: %s", h.user.Username, r.Filepath)
+	if !h.hasPermission(PermList) {
 		h.logger.Warnf("List permission denied for user: %s", h.user.Username)
 		return nil, os.ErrPermission
 	}
