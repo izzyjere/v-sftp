@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -32,6 +33,10 @@ func getEnvOrDefault(key, defaultValue string) string {
 func initLogger() (*zap.SugaredLogger, error) {
 	logPath := getEnvOrDefault("LOG_PATH", "./logs/sftp.log")
 	logLevel := getEnvOrDefault("LOG_LEVEL", "info")
+	//Create log directory if not exists
+	if err := os.MkdirAll(strings.TrimSuffix(logPath, "/"+filepath.Base(logPath)), 0755); err != nil {
+		return nil, err
+	}
 	rotator := &lumberjack.Logger{
 		Filename:   logPath,
 		MaxSize:    20, // megabytes
