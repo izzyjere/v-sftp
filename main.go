@@ -82,7 +82,7 @@ func initLogger() (*zap.SugaredLogger, error) {
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-	   log.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file")
 	}
 	logger, err := initLogger()
 	if err != nil {
@@ -97,6 +97,12 @@ func main() {
 	if err := os.MkdirAll(strings.TrimSuffix(hostKeyPath, "/"+filepath.Base(hostKeyPath)), 0755); err != nil {
 		logger.Fatalf("Failed to create data directory: %v", err)
 	}
+	// Ensure base users root exists (where user root dirs will be created)
+	usersBase := getEnvOrDefault("BASE_FS_ROOT", "./data/fs")
+	if err := os.MkdirAll(usersBase, 0755); err != nil {
+		logger.Warnf("Failed to create USERS_ROOT (%s): %v", usersBase, err)
+	}
+
 	logger.Infof("Starting SFTP server on %s", listenAddr)
 	store := NewUserStore(dsn)
 	if store == nil {

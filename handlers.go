@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/sftp"
 	"go.uber.org/zap"
 )
+
 // Constants for supported SFTP request methods
 const (
 	SSH_FXP_REMOVE = "Remove"
@@ -27,39 +28,93 @@ type SftpHandler struct {
 
 // resolvePath returns absolute canonical path for requested path inside user's root.
 // It prevents escaping root by path traversal (../) or weird absolute requests.
+// relative to the user's configured root directory.
 func (h *SftpHandler) resolvePath(requested string) (string, error) {
-	h.logger.Infof("Resolving path for request: %s", requested)
-	// Clean the requested path to remove any ../ or ./ components
-	// Normalize separators and ensure requested is treated as relative to root
-	// ensure starting slash
-	req := filepath.Clean("/" + strings.ReplaceAll(requested, "/", string(filepath.Separator)))
-	// Join with user's root path
-	req = filepath.Join(h.user.RootPath, req)
-	// Get absolute path
-	abs, err := filepath.Abs(req)
-	if err != nil {
-		h.logger.Errorf("Error resolving absolute path: %v", err)
-		return "", err
-	}
-	rootAbs, err := filepath.Abs(h.user.RootPath)
-	if err != nil {
-		h.logger.Errorf("Error resolving user's root absolute path: %v", err)
-		return "", err
-	}
-	// Ensure the resolved path is within the user's root directory
-	rel, err := filepath.Rel(rootAbs, abs)
-	if err != nil {
-		h.logger.Errorf("Error getting relative path: %v", err)
-		return "", err
-	}
-	// If rel starts with "..", the requested path is outside the root
-	if strings.HasPrefix(rel, "..") {
-		h.logger.Warnf("Attempt to escape root directory: %s", requested)
-		return "", errors.New("access denied")
-	}
-	h.logger.Infof("Resolved path: %s", abs)
-	return abs, nil
+    h.logger.Infof("Resolving path for request: %s", requested)
+
+    // Base directory under which all user roots must live
+    baseRoot := getEnvOrDefault("BASE_FS_ROOT", "./data/fs")
+
+    // Normalize incoming path separators for the current OS
+    req := filepath.FromSlash(requested)
+
+    // Strip any leading volume or leading separators so the request is always treated as relative.
+    if vol := filepath.VolumeName(req); vol != "" {
+        req = strings.TrimPrefix(req, vol)
+    }
+    req = strings.TrimPrefix(req, string(filepath.Separator))
+    req = strings.TrimPrefix(req, "/")
+
+    // Clean up any ../ or ./ sequences in the requested path itself
+    req = filepath.Clean(req)
+
+    // Treat root-like requests as empty relative path so we map "/" -> user root
+    if req == "." || req == string(filepath.Separator) || req == "/" || req == "" {
+        req = ""
+    }
+
+    // Determine user's root. If not set or invalid, allocate under BASE_FS_ROOT/<username>
+    userRoot := filepath.FromSlash(strings.TrimSpace(h.user.RootPath))
+    if userRoot == "" {
+        userRoot = filepath.Join(baseRoot, h.user.Username)
+    }
+
+    // Resolve absolute paths
+    baseAbs, err := filepath.Abs(baseRoot)
+    if err != nil {
+        h.logger.Errorf("Error resolving base root absolute path: %v", err)
+        return "", err
+    }
+    userRootAbs, err := filepath.Abs(userRoot)
+    if err != nil {
+        h.logger.Errorf("Error resolving user's root absolute path: %v", err)
+        return "", err
+    }
+
+    // Ensure user's root is inside baseRoot. If not, rebase it under baseRoot.
+    relToBase, rerr := filepath.Rel(baseAbs, userRootAbs)
+    if rerr != nil || strings.HasPrefix(relToBase, "..") || relToBase == ".." {
+        h.logger.Warnf("User root %s is outside BASE_FS_ROOT; rebasing to %s", userRootAbs, baseAbs)
+        userRootAbs = filepath.Join(baseAbs, h.user.Username)
+    }
+
+    // Ensure the user root directory exists
+    if mkerr := os.MkdirAll(userRootAbs, 0755); mkerr != nil {
+        h.logger.Warnf("Failed to create user root dir (%s): %v", userRootAbs, mkerr)
+    }
+
+    // Update in-memory user root so subsequent calls use the resolved path
+    h.user.RootPath = userRootAbs
+
+    // If req is empty it means client asked for the user's root (e.g. "/")
+    var joined string
+    if req == "" {
+        joined = userRootAbs
+    } else {
+        joined = filepath.Join(userRootAbs, req)
+    }
+
+    abs, err := filepath.Abs(joined)
+    if err != nil {
+        h.logger.Errorf("Error resolving absolute path: %v", err)
+        return "", err
+    }
+
+    // Ensure the resolved path is within the user's root directory
+    rel, err := filepath.Rel(userRootAbs, abs)
+    if err != nil {
+        h.logger.Errorf("Error getting relative path: %v", err)
+        return "", errors.New("access denied")
+    }
+    if strings.HasPrefix(rel, "..") || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+        h.logger.Warnf("Attempt to escape root directory: %s -> %s", requested, abs)
+        return "", errors.New("access denied")
+    }
+
+    h.logger.Infof("Resolved path: %s", abs)
+    return abs, nil
 }
+
 
 // hasPermission checks if the user has the specified permission.
 func (h *SftpHandler) hasPermission(perm Permission) bool {
