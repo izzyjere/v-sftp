@@ -201,13 +201,15 @@ func main() {
 								return
 							}
 							handler := &SftpHandler{user: user, logger: logger}
-							server := sftp.NewRequestServer(channel, handler)
+							handlers := sftp.Handlers{FileGet: handler, FilePut: handler, FileCmd: handler, FileList: handler}
+							server := sftp.NewRequestServer(channel, handlers)
 							if err := server.Serve(); err == io.EOF {
 								server.Close()
 								logger.Infof("SFTP client exited session.")
 							} else if err != nil {
 								logger.Errorf("SFTP server completed with error: %v", err)
 							}
+							return
 						} else {
 							req.Reply(false, nil)
 							logger.Warnf("Unknown request type: %s", req.Type)
