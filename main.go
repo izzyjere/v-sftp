@@ -21,6 +21,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func getEnvOrDefault(key, defaultValue string) string {
@@ -83,6 +86,10 @@ func main() {
 		listenAddr  = getEnvOrDefault("LISTEN_ADDR", "0.0.0.0:2022")
 		hostKeyPath = getEnvOrDefault("HOST_KEY_PATH", "./data/host_key")
 	)
+	//create data directory if not exists
+	if err := os.MkdirAll(strings.TrimSuffix(hostKeyPath, "/"+filepath.Base(hostKeyPath)), 0755); err != nil {
+		logger.Fatalf("Failed to create data directory: %v", err)
+	}
 	logger.Infof("Starting SFTP server on %s", listenAddr)
 	store := NewUserStore(dsn)
 	if store == nil {
