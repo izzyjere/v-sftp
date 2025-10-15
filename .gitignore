@@ -1,0 +1,102 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+v-sftp.exe
+
+# Build output dirs
+/bin/
+/build/
+
+# Go
+*.out
+*.test
+*.cover
+coverage.out
+pkg/
+vendor/
+
+# Modules
+go.sum
+go.work
+
+# Database / data / logs
+/data/
+data/
+*.db
+*.sqlite
+*.sqlite3
+logs/
+*.log
+
+# Secrets / keys / env
+.env
+.env.local
+host_key
+host_key.pub
+*.pem
+*.key
+
+# Editor / OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Misc
+ccache/
+*.bak
+```// filepath: d:\Code\v-sftp\.gitignore
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+v-sftp.exe
+
+# Build output dirs
+/bin/
+/build/
+
+# Go
+*.out
+*.test
+*.cover
+coverage.out
+pkg/
+vendor/
+
+# Modules
+go.sum
+go.work
+
+# Database / data / logs
+/data/
+data/
+*.db
+*.sqlite
+*.sqlite3
+logs/
+*.log
+
+# Secrets / keys / env
+.env
+.env.local
+host_key
+host_key.pub
+*.pem
+*.key
+
+# Editor / OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

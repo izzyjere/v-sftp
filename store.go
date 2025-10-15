@@ -47,14 +47,14 @@ func NewUserStore(dsn string) *UserStore {
 	}
 
 	// Ensure DB schema exists; if sftp_users table missing, apply ddl.sql
-	if err := applyDDLIfNeeded(db, logger); err != nil {
+	if err := applyDDLIfNeeded(dbType,db, logger); err != nil {
 		logger.Fatalf("Failed to apply DDL: %v", err)
 	}
 
 	return &UserStore{db: db, logger: logger}
 }
 
-func applyDDLIfNeeded(db *sql.DB, logger *zap.SugaredLogger) error {
+func applyDDLIfNeeded(dbType string, db *sql.DB, logger *zap.SugaredLogger) error {
 	logger.Infof("Checking for sftp_users table")
 	// Try a simple query against the table
 	var tmp int
@@ -65,7 +65,7 @@ func applyDDLIfNeeded(db *sql.DB, logger *zap.SugaredLogger) error {
 	}
 	logger.Warnf("sftp_users table not found or inaccessible (%v). Attempting to apply ddl.sql", err)
 
-	ddlBytes, rerr := os.ReadFile("ddl.sql")
+	ddlBytes, rerr := os.ReadFile(dbType + "_ddl.sql")
 	if rerr != nil {
 		logger.Errorf("Failed to read ddl.sql: %v", rerr)
 		return rerr
