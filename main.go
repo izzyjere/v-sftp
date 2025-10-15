@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -21,6 +22,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"github.com/joho/godotenv"
 
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
@@ -77,6 +80,10 @@ func initLogger() (*zap.SugaredLogger, error) {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+	   log.Fatal("Error loading .env file")
+	}
 	logger, err := initLogger()
 	if err != nil {
 		panic(err)
