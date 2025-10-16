@@ -193,10 +193,6 @@ func (h *SftpHandler) Filewrite(r *sftp.Request) (io.WriterAt, error) {
 // Filecmd handles other file commands like Delete, Rename, Mkdir, Rmdir
 func (h *SftpHandler) Filecmd(r *sftp.Request) error {
 	h.logger.Debugf("[Filecmd] User: %s, Method: %s, Path: %s", h.user.Username, r.Method, r.Filepath)
-	if !h.hasPermission(PermWrite) {
-		h.logger.Warnf("Write permission denied for user: %s", h.user.Username)
-		return os.ErrPermission
-	}
 	// Resolve the absolute path for the requested file
 	absPath, err := h.resolvePath(r.Filepath)
 	if err != nil {
@@ -205,12 +201,20 @@ func (h *SftpHandler) Filecmd(r *sftp.Request) error {
 	}
 	switch r.Method {
 	case SSH_FXP_REMOVE:
+		if !h.hasPermission(PermDelete) {
+			h.logger.Warnf("Delete permission denied for user: %s", h.user.Username)
+			return os.ErrPermission
+		}
 		// Handle file deletion
 		if err := os.Remove(absPath); err != nil {
 			h.logger.Errorf("Error deleting file: %v", err)
 			return err
 		}
 	case SSH_FXP_RENAME:
+		if !h.hasPermission(PermWrite) {
+			h.logger.Warnf("Write permission denied for user: %s", h.user.Username)
+			return os.ErrPermission
+		}
 		newPath, err := h.resolvePath(r.Target)
 		if err != nil {
 			h.logger.Errorf("Error resolving new file path: %v", err)
@@ -222,12 +226,20 @@ func (h *SftpHandler) Filecmd(r *sftp.Request) error {
 			return err
 		}
 	case SSH_FXP_MKDIR:
+		if !h.hasPermission(PermWrite) {
+			h.logger.Warnf("Write permission denied for user: %s", h.user.Username)
+			return os.ErrPermission
+		}
 		// Handle directory creation
 		if err := os.MkdirAll(absPath, 0755); err != nil {
 			h.logger.Errorf("Error creating directory: %v", err)
 			return err
 		}
 	case SSH_FXP_RMDIR:
+		if !h.hasPermission(PermDelete) {
+			h.logger.Warnf("Delete permission denied for user: %s", h.user.Username)
+			return os.ErrPermission
+		}
 		// Handle directory removal
 		if err := os.RemoveAll(absPath); err != nil {
 			h.logger.Errorf("Error removing directory: %v", err)
