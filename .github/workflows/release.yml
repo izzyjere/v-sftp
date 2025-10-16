@@ -39,20 +39,20 @@ jobs:
         shell: pwsh
         env:
           CGO_ENABLED: '0'
-        run: go build -trimpath -ldflags "-s -w" -o v-sftp.exe .
+        run: go build -trimpath -ldflags "-s -w" -o v-sftp-${{ runner.os }}-${{ runner.arch }}.exe .
 
       - name: Build (*nix)
         if: runner.os != 'Windows'
         env:
           CGO_ENABLED: '0'
-        run: go build -trimpath -ldflags "-s -w" -o v-sftp .
+        run: go build -trimpath -ldflags "-s -w" -o v-sftp-${{ runner.os }}-${{ runner.arch }} .
 
       - name: Upload artifact (Windows)
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: v-sftp-${{ runner.os }}-${{ runner.arch }}
-          path: v-sftp.exe
+          path: v-sftp-${{ runner.os }}-${{ runner.arch }}.exe
           if-no-files-found: error
 
       - name: Upload artifact (*nix)
@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: v-sftp-${{ runner.os }}-${{ runner.arch }}
-          path: v-sftp
+          path: v-sftp-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error
 
   release:
