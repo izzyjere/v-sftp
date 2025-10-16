@@ -141,14 +141,9 @@ There are no custom scripts in this repository. Useful Go commands:
 ├── main.go                     # Program entry; server setup & SSH/SFTP loop
 ├── handlers.go                 # SFTP request handlers (read/write/cmd/list)
 ├── store.go                    # User store (SQLite/PostgreSQL) and DDL bootstrap
-├── go.mod / go.sum             # Go module metadata and dependencies
 ├── sqlite_ddl.sql              # SQLite schema for sftp_users
 ├── postgres_ddl.sql            # PostgreSQL schema for sftp_users
-├── data/
-│   └── host_key                # Default SSH host key location (auto‑created if missing)
-├── logs/
-│   └── sftp.log                # Default rotating log file
-└── v-sftp.exe                  # Example built binary (Windows)
+
 ```
 
 
@@ -165,3 +160,6 @@ MIT License — see LICENSE for details.
 ## Maintenance and Contributions
 - Issues and PRs are welcome. Please include details about your environment and steps to reproduce problems.
 - Before submitting changes, run `go build` to ensure the project compiles and consider adding tests where possible.
+
+## Known Issues
+- Failure to open empty directories on WinSCP
