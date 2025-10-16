@@ -1,0 +1,87 @@
+name: Release v-sftp
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build binaries (${{ runner.os }}-${{ runner.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+
+      - name: Show Go environment
+        run: go env
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags "-s -w" -o v-sftp.exe .
+
+      - name: Build (*nix)
+        if: runner.os != 'Windows'
+        env:
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags "-s -w" -o v-sftp .
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: v-sftp-${{ runner.os }}-${{ runner.arch }}
+          path: v-sftp.exe
+          if-no-files-found: error
+
+      - name: Upload artifact (*nix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: v-sftp-${{ runner.os }}-${{ runner.arch }}
+          path: v-sftp
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release and attach binaries
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v-sftp-*
+          merge-multiple: false
+
+      - name: List downloaded artifacts
+        run: |
+          ls -R
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            v-sftp-*/v-sftp*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
