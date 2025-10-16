@@ -214,7 +214,11 @@ func main() {
 						if req.Type == "subsystem" && len(req.Payload) >= 4 && string(req.Payload[4:]) == "sftp" {
 							// Handle SFTP subsystem request
 							//Accept the request
-							req.Reply(true, nil)
+							err := req.Reply(true, nil)
+							if err != nil {
+								logger.Errorf("Could not reply to request: %v", err)
+								return
+							}
 							// Fetch user info from session
 							username := sshConn.Permissions.Extensions["username"]
 							cxt, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -236,7 +240,10 @@ func main() {
 							}
 							return
 						} else {
-							req.Reply(false, nil)
+							err := req.Reply(false, nil)
+							if err != nil {
+								logger.Errorf("Failed to reply to client: %v", err)
+							}
 							logger.Warnf("Unknown request type: %s", req.Type)
 							continue
 						}

@@ -162,4 +162,4 @@ MIT License — see LICENSE for details.
 - Before submitting changes, run `go build` to ensure the project compiles and consider adding tests where possible.
 
 ## Known Issues
-- Failure to open empty directories on WinSCP
+- None currently.
