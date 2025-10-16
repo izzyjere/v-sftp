@@ -10,6 +10,7 @@ A minimal, self-hosted SFTP server written in Go. It supports password and publi
 - Permission bitmask per user: 1=Read, 2=List, 4=Write, 8=Delete
 - Auto‑applies DB schema at startup if the `sftp_users` table is missing (uses `sqlite_ddl.sql` or `postgres_ddl.sql`)
 - Rotating structured logs via lumberjack + zap
+- Setstat support: chmod, timestamps, chown (non-Windows), and safe truncate (Size>0)
 
 
 ## Stack and Project Metadata

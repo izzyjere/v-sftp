@@ -5,7 +5,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/pkg/sftp"
 	"go.uber.org/zap"
@@ -13,10 +15,11 @@ import (
 
 // Constants for supported SFTP request methods
 const (
-	SSH_FXP_REMOVE = "Remove"
-	SSH_FXP_RENAME = "Rename"
-	SSH_FXP_MKDIR  = "Mkdir"
-	SSH_FXP_RMDIR  = "Rmdir"
+	SSH_FXP_REMOVE   = "Remove"
+	SSH_FXP_RENAME   = "Rename"
+	SSH_FXP_MKDIR    = "Mkdir"
+	SSH_FXP_RMDIR    = "Rmdir"
+	SSH_FXP_SET_STAT = "Setstat"
 )
 
 // SftpHandler is used by sftp.NewRequestServer to handle requests.
@@ -245,6 +248,78 @@ func (h *SftpHandler) Filecmd(r *sftp.Request) error {
 			h.logger.Errorf("Error removing directory: %v", err)
 			return err
 		}
+	case SSH_FXP_SET_STAT:
+		// Apply Setstat attributes best-effort with virtual-root safety and permission checks.
+		if !h.hasPermission(PermWrite) {
+			h.logger.Warnf("Setstat denied (write permission required) for user: %s", h.user.Username)
+			return os.ErrPermission
+		}
+		attrs := r.Attributes()
+		if attrs == nil {
+			h.logger.Debugf("[Setstat] No attributes provided for %s", absPath)
+			return nil
+		}
+		// 1) Permissions (Mode)
+		if attrs.Mode != 0 {
+			perm := os.FileMode(attrs.Mode & 0o777)
+			if err := os.Chmod(absPath, perm); err != nil {
+				h.logger.Errorf("[Setstat] Chmod failed on %s: %v", absPath, err)
+				return err
+			}
+			h.logger.Debugf("[Setstat] Applied chmod %04o to %s", uint32(perm), absPath)
+		}
+		// 2) Times (Atime/Mtime)
+		if attrs.Atime != 0 || attrs.Mtime != 0 {
+			// If only one provided, reuse it for the other to keep API simple.
+			at := attrs.Atime
+			mt := attrs.Mtime
+			if at == 0 {
+				at = mt
+			}
+			if mt == 0 {
+				mt = at
+			}
+			atime := time.Unix(int64(at), 0)
+			mtime := time.Unix(int64(mt), 0)
+			if err := os.Chtimes(absPath, atime, mtime); err != nil {
+				h.logger.Errorf("[Setstat] Chtimes failed on %s: %v", absPath, err)
+				return err
+			}
+			h.logger.Debugf("[Setstat] Applied chtimes atime=%v mtime=%v to %s", atime, mtime, absPath)
+		}
+		// 3) Ownership (UID/GID) — unsupported on Windows.
+		if runtime.GOOS != "windows" && (attrs.UID != 0 || attrs.GID != 0) {
+			if err := os.Chown(absPath, int(attrs.UID), int(attrs.GID)); err != nil {
+				h.logger.Errorf("[Setstat] Chown failed on %s: %v", absPath, err)
+				return err
+			}
+			h.logger.Debugf("[Setstat] Applied chown uid=%d gid=%d to %s", attrs.UID, attrs.GID, absPath)
+		} else if runtime.GOOS == "windows" && (attrs.UID != 0 || attrs.GID != 0) {
+			h.logger.Debugf("[Setstat] Skipping chown on Windows for %s (uid=%d gid=%d)", absPath, attrs.UID, attrs.GID)
+		}
+		// 4) Size (truncate). Ambiguity: FileStat lacks flags; to avoid destructive truncation to 0
+		// when size is not explicitly set, we only act when Size > 0.
+		if attrs.Size > 0 {
+			// Ensure it is a regular file before truncating
+			fi, statErr := os.Stat(absPath)
+			if statErr != nil {
+				h.logger.Errorf("[Setstat] Stat before truncate failed on %s: %v", absPath, statErr)
+				return statErr
+			}
+			if fi.Mode().IsRegular() {
+				if err := os.Truncate(absPath, int64(attrs.Size)); err != nil {
+					h.logger.Errorf("[Setstat] Truncate failed on %s: %v", absPath, err)
+					return err
+				}
+				h.logger.Debugf("[Setstat] Applied truncate size=%d to %s", attrs.Size, absPath)
+			} else {
+				h.logger.Warnf("[Setstat] Skip truncate: %s is not a regular file", absPath)
+			}
+		} else if attrs.Size == 0 {
+			// We cannot distinguish between 'set size to 0' and 'size not provided' without flags in this API.
+			h.logger.Debugf("[Setstat] Size=0 ignored for safety on %s (ambiguous: not applying truncate)", absPath)
+		}
+		return nil
 	default:
 		h.logger.Warnf("Unsupported file command: %s", r.Method)
 		return os.ErrInvalid
